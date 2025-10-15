@@ -1,8 +1,10 @@
+// /pages/landing/app.js
 import { useEffect, useMemo, useState } from "react";
 import SiteLayout from "@/components/SiteLayout";
 import { useAuth } from "@/src/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import ProfileCard from "@/components/ProfileCard";
+import InvitePartner from "@/components/InvitePartner";
 import { daysBetween, humanDays } from "@/utils/date";
 
 export default function MyArea() {
@@ -11,7 +13,7 @@ export default function MyArea() {
   const [stats, setStats] = useState({ matches: 0, feedbacks: 0 });
   const [msg, setMsg] = useState("");
 
-  // carga pareja activa (vista v_my_active_partner)
+  // Carga pareja activa (vista v_my_active_partner)
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -23,11 +25,10 @@ export default function MyArea() {
     })();
   }, [user]);
 
-  // placeholders de estadísticas (ajusta a tus tablas reales cuando las crees)
+  // Placeholders de estadísticas (ajusta cuando tengas tablas matches/feedback)
   useEffect(() => {
     if (!user) return;
     (async () => {
-      // Aquí podrías consultar tablas "matches" y "feedback"
       setStats({ matches: 0, feedbacks: 0 });
     })();
   }, [user]);
@@ -61,13 +62,14 @@ export default function MyArea() {
       </p>
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* Columna 1: perfil editable */}
+        {/* Columna izquierda: perfil editable */}
         <div className="md:col-span-2">
           <ProfileCard user={user} />
         </div>
 
-        {/* Columna 2: estado de pareja + stats */}
+        {/* Columna derecha: estado de pareja, invitar y stats */}
         <div className="space-y-6">
+          {/* PANEL: Estado de pareja */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Estado de pareja</h3>
 
@@ -83,7 +85,7 @@ export default function MyArea() {
                   {sinceDays !== null && <> — {humanDays(sinceDays)}</>}
                 </p>
                 <p className="text-xs text-gray-400">
-                  (La ficha de tu pareja se mostrará aquí cuando implementemos perfiles públicos.)
+                  (La ficha de tu pareja se mostrará aquí cuando activemos perfiles públicos.)
                 </p>
               </div>
             )}
@@ -92,7 +94,6 @@ export default function MyArea() {
               <button
                 onClick={async () => {
                   setMsg("");
-                  // marca “buscando pareja” en tu perfil
                   const { error } = await supabase
                     .from("profiles")
                     .update({ pair_status: "looking", seeking_pair: true })
@@ -107,7 +108,6 @@ export default function MyArea() {
               <button
                 onClick={async () => {
                   setMsg("");
-                  // cierra pareja activa (si la hubiera) y añade evento al historial
                   if (pair?.partner_id) {
                     await supabase
                       .from("partner_links")
@@ -133,6 +133,10 @@ export default function MyArea() {
             {msg && <p className="mt-3 text-sm">{msg}</p>}
           </div>
 
+          {/* NUEVO: Invitar pareja */}
+          <InvitePartner user={user} />
+
+          {/* PANEL: Indicadores rápidos */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Indicadores rápidos</h3>
             <div className="grid grid-cols-2 gap-3">
