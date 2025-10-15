@@ -1,11 +1,12 @@
-// /pages/matches/new.js
-import { useEffect, useMemo, useState } from "react";
+// /pages/landing/matches/new.js
 import { useRouter } from "next/router";
-import { supabase } from "../../lib/supabaseClient";
-import { computeMatchCompetitiveness } from "../../utils/matching";
-import Page from "../../matches/new";
-export default Page;
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../../lib/supabaseClient";             // <— ojo: 3 niveles
+import { computeMatchCompetitiveness } from "../../../utils/matching";
 
+// ❌ quita esto:
+// import Page from "../../matches/new";
+// export default Page;
 
 export default function NewMatch() {
   const router = useRouter();
@@ -21,7 +22,6 @@ export default function NewMatch() {
   const [msg, setMsg] = useState("");
   const [createdMatchId, setCreatedMatchId] = useState(null);
 
-  // Cargar parejas
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -33,14 +33,12 @@ export default function NewMatch() {
     })();
   }, []);
 
-  // Preseleccionar pairB desde query
   useEffect(() => {
     if (!pairBQuery || pairs.length === 0) return;
     const found = pairs.find((p) => p.id === pairBQuery);
     if (found) setPairB(found);
   }, [pairBQuery, pairs]);
 
-  // Compatibilidad en vivo
   const liveScore = useMemo(() => {
     if (!pairA || !pairB) return null;
     return computeMatchCompetitiveness(pairA, pairB);
@@ -102,18 +100,13 @@ export default function NewMatch() {
           </option>
         ))}
       </select>
-      {/* Enlace rápido a fichas de jugadores de esa pareja */}
       {value?.player1_id || value?.player2_id ? (
         <div className="text-xs text-gray-500 mt-1 space-x-2">
           {value.player1_id && (
-            <a className="underline" href={`/players/${value.player1_id}`}>
-              Ver jugador 1
-            </a>
+            <a className="underline" href={`/players/${value.player1_id}`}>Ver jugador 1</a>
           )}
           {value.player2_id && (
-            <a className="underline" href={`/players/${value.player2_id}`}>
-              Ver jugador 2
-            </a>
+            <a className="underline" href={`/players/${value.player2_id}`}>Ver jugador 2</a>
           )}
         </div>
       ) : null}
@@ -132,54 +125,7 @@ export default function NewMatch() {
           <PairSelect label="Pareja A (tú)" value={pairA} onChange={setPairA} />
           <PairSelect label="Pareja B (rival)" value={pairB} onChange={setPairB} />
 
-          <div>
-            <label className="text-sm text-gray-400 mb-1">Modo</label>
-            <div className="flex gap-2">
-              {["friendly", "competitive"].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`px-4 py-2 rounded-xl border ${
-                    mode === m
-                      ? "bg-emerald-500 text-black border-emerald-400"
-                      : "bg-white/5 border-white/10"
-                  }`}
-                >
-                  {m === "friendly" ? "Amistoso" : "Competitivo"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-400 mb-1">Ubicación / Club (opcional)</label>
-            <input
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Madrid — Club X"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-400 mb-1">Fecha (opcional)</label>
-            <input
-              type="date"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-400 mb-1">Hora (opcional)</label>
-            <input
-              type="time"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-          </div>
+          {/* ... resto del JSX igual que ya tenías ... */}
         </div>
 
         {/* Compatibilidad en vivo */}
@@ -189,51 +135,20 @@ export default function NewMatch() {
               Compatibilidad prevista: <b>{Math.round(liveScore * 100)}%</b>
             </div>
             <div className="w-full h-2 bg-white/10 rounded">
-              <div
-                className="h-2 bg-emerald-500 rounded"
-                style={{ width: `${Math.round(liveScore * 100)}%` }}
-              />
+              <div className="h-2 bg-emerald-500 rounded" style={{ width: `${Math.round(liveScore * 100)}%` }} />
             </div>
           </div>
         )}
 
-        <button
-          onClick={saveMatch}
-          className="mt-8 px-5 py-3 rounded-xl bg-emerald-500 text-black"
-        >
+        <button onClick={saveMatch} className="mt-8 px-5 py-3 rounded-xl bg-emerald-500 text-black">
           Guardar partido
         </button>
 
-        {/* Mensajes y acciones post-creación */}
         {msg && <p className="mt-4 text-sm">{msg}</p>}
 
         {createdMatchId && (
           <div className="mt-5 p-4 rounded-2xl bg-white/5 border border-emerald-500/40">
-            <p className="text-sm text-emerald-300 mb-3">
-              Partido listo. ¿Quieres registrar feedback o seguir organizando?
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <a
-                className="px-4 py-2 rounded-xl bg-emerald-500 text-black"
-                href={`/feedback/${createdMatchId}`}
-              >
-                Añadir feedback ahora
-              </a>
-              <a
-                className="px-4 py-2 rounded-xl border border-white/15 bg-white/5"
-                href="/matches/find"
-              >
-                Volver al buscador
-              </a>
-              <a
-                className="px-4 py-2 rounded-xl border border-white/15 bg-white/5"
-                href="https://playtomic.io"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Reservar en Playtomic
-              </a>
-            </div>
+            {/* ... botones de navegación ... */}
           </div>
         )}
       </div>

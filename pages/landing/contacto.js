@@ -1,7 +1,7 @@
 // pages/landing/contacto.js
 import { useState } from "react";
 import SiteLayout from "../../components/SiteLayout";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from '../../lib/supabaseClient'
 
 export default function Contacto() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });

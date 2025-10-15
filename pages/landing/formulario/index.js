@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import SiteLayout from "../../../components/SiteLayout";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from '../../../lib/supabaseClient'
 
 
 const POSITIONS = [

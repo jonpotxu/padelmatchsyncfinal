@@ -1,9 +1,8 @@
 // /pages/feedback/[matchId].js
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import Page from "../../feedback/[matchId]";
-export default Page;
+import { supabase } from '../../../lib/supabaseClient'
+
 
 
 const FIELDS = [

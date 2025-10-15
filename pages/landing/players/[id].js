@@ -1,12 +1,9 @@
-// /pages/players/[id].js
+// /pages/landing/players/[id].js
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { averageFeedback, top2AndBottom2, specialStrokeFromProfile } from "../../utils/insights";
-import { pickNickname } from "../../utils/matching";
-import Page from "../../players/[id]";
-export default Page;
-
+import { supabase } from '../../../lib/supabaseClient'
+import { averageFeedback, top2AndBottom2, specialStrokeFromProfile } from "../../../utils/insights";
+import { pickNickname } from "../../../utils/matching";
 
 const LABELS = {
   comms: "Comunicación",
@@ -16,7 +13,7 @@ const LABELS = {
   walls: "Paredes",
 };
 
-export default function PlayerCard() {
+function PlayerCard() {
   const router = useRouter();
   const { id } = router.query;
 
@@ -36,6 +33,7 @@ export default function PlayerCard() {
         .eq("id", id)
         .limit(1)
         .single();
+
       if (pErr || !pData) {
         setMsg("No se pudo cargar el jugador.");
         return;
@@ -48,6 +46,7 @@ export default function PlayerCard() {
         .select("*")
         .eq("about_player", id)
         .order("created_at", { ascending: false });
+
       setFeedback(Array.isArray(fData) ? fData : []);
 
       // 3) (Opcional) Agregado
@@ -56,6 +55,7 @@ export default function PlayerCard() {
         .select("*")
         .eq("player_id", id)
         .limit(1);
+
       setAgg(Array.isArray(aRows) && aRows.length ? aRows[0] : null);
     })();
   }, [id]);
@@ -107,6 +107,7 @@ export default function PlayerCard() {
         walls: Number(agg.walls_avg ?? 0),
       }
     : local.avg;
+
   const fbCount = agg?.fb_count ?? local.count;
   const { top2, bottom2 } = top2AndBottom2(averages);
 
@@ -136,9 +137,7 @@ export default function PlayerCard() {
             >
               Copiar enlace
             </button>
-            {copied && (
-              <span className="text-sm text-emerald-300">¡Copiado!</span>
-            )}
+            {copied && <span className="text-sm text-emerald-300">¡Copiado!</span>}
           </div>
         </div>
 
@@ -219,3 +218,5 @@ export default function PlayerCard() {
     </div>
   );
 }
+
+export default PlayerCard;
