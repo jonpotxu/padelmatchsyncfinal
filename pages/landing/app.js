@@ -172,6 +172,21 @@ export default function MyArea() {
                 <div className="text-2xl font-bold">{stats.feedbacks}</div>
               </div>
             </div>
+			<div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+  <h3 className="text-lg font-semibold mb-3">Partidos</h3>
+  <div className="flex flex-wrap gap-3">
+    <a href="/landing/matches/find" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
+      Buscar rivales
+    </a>
+    <a href="/landing/matches/new" className="px-4 py-2 rounded-xl bg-emerald-500 text-black">
+      Crear partido
+    </a>
+    <a href="/landing/matches/mis" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
+      Mis partidos
+    </a>
+  </div>
+</div>
+
             <p className="text-xs text-gray-400 mt-3">
               Conectaremos estos datos cuando activemos tablas de partidos y feedback en esta versión.
             </p>

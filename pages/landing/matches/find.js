@@ -1,8 +1,7 @@
-// /pages/matches/find.js
+// /pages/landing/matches/find.js
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient"; // ojo: 3 niveles
 import { findMatchesForPair } from "../../../utils/matching";
-
 
 export default function FindMatches() {
   const [mode, setMode] = useState("competitive");
@@ -107,7 +106,6 @@ export default function FindMatches() {
                     <div>⚖️ Nivel medio: <b>{opponent.average_score.toFixed(1)}</b></div>
                     <div>🎯 Competitividad: <b>{opponent.competitiveness}</b></div>
                     <div>🗓️ Disponibilidad: <b>{(opponent.availability || []).join(", ") || "—"}</b></div>
-                    {/* Links a fichas de los jugadores de la pareja */}
                     {(opponent.player1_id || opponent.player2_id) && (
                       <div className="text-xs text-gray-400 mt-2 space-x-2">
                         {opponent.player1_id && (
@@ -136,7 +134,7 @@ export default function FindMatches() {
                   <div className="mt-5 flex gap-3">
                     <a
                       className="px-4 py-2 rounded-xl bg-emerald-500 text-black"
-                      href={`/matches/new?pairB=${encodeURIComponent(opponent.id)}`}
+                      href={`/landing/matches/new?pairB=${encodeURIComponent(opponent.id)}`}
                     >
                       Invitar a partido
                     </a>
