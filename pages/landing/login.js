@@ -1,3 +1,4 @@
+// pages/landing/login.js
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SiteLayout from "@/components/SiteLayout";
@@ -7,13 +8,17 @@ import { useRouter } from "next/router";
 
 // Crea (si no existe) el enlace de pareja entre inviterId y currentUserId
 async function ensurePairLink(inviterId, currentUserId) {
-  if (!inviterId || !currentUserId || inviterId === currentUserId) return { ok: false, reason: "ids_invalidos" };
+  if (!inviterId || !currentUserId || inviterId === currentUserId) {
+    return { ok: false, reason: "ids_invalidos" };
+  }
 
   // ¿Ya hay una pareja activa en cualquier orden?
   const { data: existing, error: selErr } = await supabase
     .from("partner_links")
     .select("*")
-    .or(`and(a_user.eq.${inviterId},b_user.eq.${currentUserId}),and(a_user.eq.${currentUserId},b_user.eq.${inviterId})`)
+    .or(
+      `and(a_user.eq.${inviterId},b_user.eq.${currentUserId}),and(a_user.eq.${currentUserId},b_user.eq.${inviterId})`
+    )
     .eq("active", true)
     .maybeSingle();
 
@@ -31,13 +36,13 @@ async function ensurePairLink(inviterId, currentUserId) {
 
   // Historial para ambos (opcional)
   await supabase.from("partner_history").insert([
-    { user_id: inviterId, event: "start_pair", note: `Pareja con ${currentUserId}` },
-    { user_id: currentUserId, event: "start_pair", note: `Pareja con ${inviterId}` },
-  ]);
+    { user_id: inviterId, current_user_id: inviterId, event: "start_pair", note: `Pareja con ${currentUserId}` },
+    { user_id: currentUserId, current_user_id: currentUserId, event: "start_pair", note: `Pareja con ${inviterId}` },
+  ]).catch(() => {});
 
   // Marca perfiles como “reliable” (opcional) o al menos no-looking
-  await supabase.from("profiles").update({ pair_status: "reliable", seeking_pair: false }).eq("id", inviterId);
-  await supabase.from("profiles").update({ pair_status: "reliable", seeking_pair: false }).eq("id", currentUserId);
+  await supabase.from("profiles").update({ pair_status: "reliable", seeking_pair: false }).eq("id", inviterId).catch(()=>{});
+  await supabase.from("profiles").update({ pair_status: "reliable", seeking_pair: false }).eq("id", currentUserId).catch(()=>{});
 
   return { ok: true, reason: "creada", data: insData };
 }
@@ -45,25 +50,37 @@ async function ensurePairLink(inviterId, currentUserId) {
 export default function Login() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+
   const origin = useMemo(() => (typeof window !== "undefined" ? window.location.origin : ""), []);
 
-  // Si viene invited_by en la URL y el usuario ya está logueado, creamos pareja
+  // Si ya hay sesión, gestiona invitación (si existe) y redirige a Mi área
   useEffect(() => {
+    if (loading) return;
+    if (!user) return;
+
     (async () => {
-      if (loading) return;
-      const inviterId = router.query?.invited_by;
-      if (user && inviterId) {
-        const res = await ensurePairLink(inviterId, user.id);
-        if (res.ok) setMsg(res.reason === "ya_existia" ? "✅ Pareja ya estaba activa." : "✅ Pareja creada.");
-        else setMsg("⚠️ No se pudo crear la pareja automáticamente.");
-        // Limpiamos la query para evitar repetir
-        const clean = { pathname: router.pathname, query: {} };
-        router.replace(clean, undefined, { shallow: true });
+      try {
+        const inviterId = router.query?.invited_by;
+
+        if (inviterId) {
+          const res = await ensurePairLink(inviterId, user.id);
+          if (res.ok) {
+            setMsg(res.reason === "ya_existia" ? "✅ Pareja ya estaba activa." : "✅ Pareja creada.");
+          } else {
+            setMsg("⚠️ No se pudo crear la pareja automáticamente.");
+          }
+
+          // Limpia la query para evitar repetir
+          const clean = { pathname: router.pathname, query: {} };
+          router.replace(clean, undefined, { shallow: true });
+        }
+      } finally {
         // Redirige a Mi área
-        setTimeout(() => router.push("/landing/app"), 600);
+        router.replace("/landing/app");
       }
     })();
   }, [user, loading, router]);
@@ -77,13 +94,18 @@ export default function Login() {
     }
     try {
       setBusy(true);
-      // Enlace mágico normal (sin invitación)
+
+      // Si llega con invited_by, lo mantenemos en el redirect para crear pareja al volver
+      const invitedBy = router.query?.invited_by;
+      const redirectUrl = invitedBy
+        ? `${origin}/landing/login?invited_by=${encodeURIComponent(invitedBy)}`
+        : `${origin}/landing/login`;
+
       await supabase.auth.signInWithOtp({
         email,
-        options: {
-          emailRedirectTo: `${origin}/landing/login`,
-        },
+        options: { emailRedirectTo: redirectUrl },
       });
+
       setMsg("✅ Te hemos enviado un enlace. Revisa tu correo (y spam).");
       setEmail("");
     } catch {
@@ -97,11 +119,15 @@ export default function Login() {
     setMsg("");
     try {
       setBusy(true);
+
+      const invitedBy = router.query?.invited_by;
+      const redirectTo = invitedBy
+        ? `${origin}/landing/login?invited_by=${encodeURIComponent(invitedBy)}`
+        : `${origin}/landing/login`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: `${origin}/landing/login`,
-        },
+        options: { redirectTo },
       });
       if (error) throw error;
     } catch {
@@ -119,11 +145,8 @@ export default function Login() {
     );
   }
 
-  if (user) {
-    // Si ya hay sesión, vete a Mi área
-    if (typeof window !== "undefined") router.replace("/landing/app");
-    return null;
-  }
+  // Si hay usuario, el useEffect ya está redirigiendo → evita parpadeos
+  if (user) return null;
 
   return (
     <SiteLayout>
@@ -140,9 +163,11 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <button
-            disabled={busy}
+            disabled={busy || !email}
             className={`w-full px-4 py-3 rounded-2xl font-semibold ${
-              busy ? "bg-white/10 text-gray-500 cursor-not-allowed" : "bg-emerald-500 text-black hover:brightness-110"
+              busy || !email
+                ? "bg-white/10 text-gray-500 cursor-not-allowed"
+                : "bg-emerald-500 text-black hover:brightness-110"
             }`}
           >
             {busy ? "Enviando…" : "Entrar con enlace mágico"}
@@ -164,7 +189,9 @@ export default function Login() {
         {msg && <p className="mt-4 text-sm">{msg}</p>}
 
         <div className="mt-6 text-sm text-gray-400">
-          <Link href="/landing" className="underline">Volver al inicio</Link>
+          <Link href="/landing" className="underline">
+            Volver al inicio
+          </Link>
         </div>
       </div>
     </SiteLayout>
