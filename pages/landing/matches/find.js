@@ -1,9 +1,11 @@
 // /pages/landing/matches/find.js
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient"; // ojo: 3 niveles
+import { supabase } from "../../../lib/supabaseClient";
 import { findMatchesForPair } from "../../../utils/matching";
+import { useAuth } from "@/src/AuthContext";
 
 export default function FindMatches() {
+  const { user, loading } = useAuth();
   const [mode, setMode] = useState("competitive");
   const [city, setCity] = useState("");
   const [pairs, setPairs] = useState([]);
@@ -11,23 +13,46 @@ export default function FindMatches() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
+    if (!user) return;
     (async () => {
-      const { data, error } = await supabase
-        .from("pairs")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) setMsg("❌ " + error.message);
-      else {
-        setPairs(data || []);
-        setMyPair((data || [])[0] || null);
+      const [{ data: pairsData, error: e1 }, { data: vData, error: e2 }] = await Promise.all([
+        supabase.from("pairs").select("*").order("created_at", { ascending: false }),
+        supabase.from("v_my_active_partner").select("*").maybeSingle(),
+      ]);
+
+      if (e1) setMsg("❌ " + e1.message);
+      setPairs(pairsData || []);
+
+      // Intenta detectar tu pair basada en v_my_active_partner
+      let mine = null;
+      if (pairsData && user?.id) {
+        // 1) con tu pareja activa exacta
+        if (vData?.partner_id) {
+          mine =
+            pairsData.find(
+              (p) =>
+                (p.player1_id === user.id && p.player2_id === vData.partner_id) ||
+                (p.player2_id === user.id && p.player1_id === vData.partner_id)
+            ) || null;
+        }
+        // 2) o cualquier pair que te contenga
+        if (!mine) {
+          mine = pairsData.find((p) => p.player1_id === user.id || p.player2_id === user.id) || null;
+        }
       }
+      setMyPair(mine);
     })();
-  }, []);
+  }, [user]);
 
   const candidates = useMemo(() => {
     if (!myPair) return [];
     let pool = pairs.filter((p) => p.id !== myPair.id);
+
+    // Evitar que salgan pairs donde estés tú (por si hay varias)
+    pool = pool.filter((p) => p.player1_id !== user.id && p.player2_id !== user.id);
+
     if (city) pool = pool.filter((p) => (p.location || "").toLowerCase().includes(city.toLowerCase()));
+
     return findMatchesForPair(
       {
         id: myPair.id,
@@ -46,7 +71,14 @@ export default function FindMatches() {
       })),
       mode
     );
-  }, [pairs, myPair, mode, city]);
+  }, [pairs, myPair, mode, city, user?.id]);
+
+  if (loading) {
+    return <div className="min-h-screen text-white px-6 py-10">Cargando…</div>;
+  }
+  if (!user) {
+    return <div className="min-h-screen text-white px-6 py-10">Necesitas iniciar sesión.</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white">
@@ -56,15 +88,14 @@ export default function FindMatches() {
 
         {!myPair && (
           <p className="text-gray-400">
-            Crea primero una pareja en <a className="underline" href="/pairs">/pairs</a>.
+            No se ha detectado tu pareja. Crea/activa una en tu área o en la tabla <b>pairs</b>.
           </p>
         )}
 
         {myPair && (
           <>
             <div className="text-sm text-gray-400 mb-4">
-              Mi pareja: <b>{myPair.id.slice(0, 8)}</b> — nivel medio{" "}
-              <b>{Number(myPair.average_score || 6).toFixed(1)}</b> —{" "}
+              Mi pareja: <b>{myPair.id.slice(0, 8)}</b> — nivel medio <b>{Number(myPair.average_score || 6).toFixed(1)}</b> —{" "}
               {myPair.competitiveness || "intermedio"}
             </div>
 
@@ -72,17 +103,13 @@ export default function FindMatches() {
               <div className="flex gap-2 bg-white/5 border border-white/10 rounded-xl p-1">
                 <button
                   onClick={() => setMode("friendly")}
-                  className={`px-4 py-2 rounded-lg ${
-                    mode === "friendly" ? "bg-emerald-500 text-black" : "text-white"
-                  }`}
+                  className={`px-4 py-2 rounded-lg ${mode === "friendly" ? "bg-emerald-500 text-black" : "text-white"}`}
                 >
                   Amistoso
                 </button>
                 <button
                   onClick={() => setMode("competitive")}
-                  className={`px-4 py-2 rounded-lg ${
-                    mode === "competitive" ? "bg-emerald-500 text-black" : "text-white"
-                  }`}
+                  className={`px-4 py-2 rounded-lg ${mode === "competitive" ? "bg-emerald-500 text-black" : "text-white"}`}
                 >
                   Competitivo
                 </button>
@@ -108,26 +135,15 @@ export default function FindMatches() {
                     <div>🗓️ Disponibilidad: <b>{(opponent.availability || []).join(", ") || "—"}</b></div>
                     {(opponent.player1_id || opponent.player2_id) && (
                       <div className="text-xs text-gray-400 mt-2 space-x-2">
-                        {opponent.player1_id && (
-                          <a className="underline" href={`/players/${opponent.player1_id}`}>
-                            Ver jugador 1
-                          </a>
-                        )}
-                        {opponent.player2_id && (
-                          <a className="underline" href={`/players/${opponent.player2_id}`}>
-                            Ver jugador 2
-                          </a>
-                        )}
+                        {opponent.player1_id && <a className="underline" href={`/players/${opponent.player1_id}`}>Ver jugador 1</a>}
+                        {opponent.player2_id && <a className="underline" href={`/players/${opponent.player2_id}`}>Ver jugador 2</a>}
                       </div>
                     )}
                   </div>
                   <div className="mt-4">
                     <div className="text-sm text-gray-400">Compatibilidad</div>
                     <div className="w-full h-2 bg-white/10 rounded">
-                      <div
-                        className="h-2 bg-emerald-500 rounded"
-                        style={{ width: `${Math.round(score * 100)}%` }}
-                      />
+                      <div className="h-2 bg-emerald-500 rounded" style={{ width: `${Math.round(score * 100)}%` }} />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">{Math.round(score * 100)}%</div>
                   </div>
@@ -151,9 +167,7 @@ export default function FindMatches() {
               ))}
             </div>
 
-            {candidates.length === 0 && (
-              <p className="text-gray-400 mt-8">No hay parejas compatibles con esos filtros.</p>
-            )}
+            {candidates.length === 0 && <p className="text-gray-400 mt-8">No hay parejas compatibles con esos filtros.</p>}
           </>
         )}
       </div>

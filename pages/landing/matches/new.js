@@ -1,15 +1,13 @@
 // /pages/landing/matches/new.js
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient";             // <— ojo: 3 niveles
+import { supabase } from "../../../lib/supabaseClient";
 import { computeMatchCompetitiveness } from "../../../utils/matching";
-
-// ❌ quita esto:
-// import Page from "../../matches/new";
-// export default Page;
+import { useAuth } from "@/src/AuthContext";
 
 export default function NewMatch() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const { pairB: pairBQuery } = router.query;
 
   const [pairs, setPairs] = useState([]);
@@ -21,18 +19,43 @@ export default function NewMatch() {
   const [time, setTime] = useState(""); // HH:MM
   const [msg, setMsg] = useState("");
   const [createdMatchId, setCreatedMatchId] = useState(null);
+  const [activePartner, setActivePartner] = useState(null); // v_my_active_partner
 
+  // Cargar todas las pairs + tu pareja activa
   useEffect(() => {
+    if (!user) return;
     (async () => {
-      const { data, error } = await supabase
-        .from("pairs")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!error) setPairs(data || []);
-      else setMsg("❌ " + error.message);
-    })();
-  }, []);
+      const [{ data: pairsData, error: e1 }, { data: vData, error: e2 }] = await Promise.all([
+        supabase.from("pairs").select("*").order("created_at", { ascending: false }),
+        supabase.from("v_my_active_partner").select("*").maybeSingle(),
+      ]);
 
+      if (!e1) setPairs(pairsData || []);
+      if (!e2) setActivePartner(vData || null);
+    })();
+  }, [user]);
+
+  // Preseleccionar tu pairA en base a v_my_active_partner
+  useEffect(() => {
+    if (!user || pairs.length === 0) return;
+
+    const mineAny = pairs.find((p) => p.player1_id === user.id || p.player2_id === user.id) || null;
+
+    if (activePartner?.partner_id) {
+      const together =
+        pairs.find(
+          (p) =>
+            (p.player1_id === user.id && p.player2_id === activePartner.partner_id) ||
+            (p.player2_id === user.id && p.player1_id === activePartner.partner_id)
+        ) || null;
+
+      setPairA(together || mineAny);
+    } else {
+      setPairA(mineAny);
+    }
+  }, [user, pairs, activePartner]);
+
+  // Si venía una pairB en la URL, precargar
   useEffect(() => {
     if (!pairBQuery || pairs.length === 0) return;
     const found = pairs.find((p) => p.id === pairBQuery);
@@ -49,7 +72,7 @@ export default function NewMatch() {
       setMsg("");
       setCreatedMatchId(null);
       if (!pairA || !pairB || pairA.id === pairB.id) {
-        setMsg("Elige dos parejas distintas.");
+        setMsg("Elige dos parejas distintas (y asegúrate de que tu pareja está detectada).");
         return;
       }
       let iso = null;
@@ -84,7 +107,7 @@ export default function NewMatch() {
     }
   };
 
-  const PairSelect = ({ label, value, onChange }) => (
+  const PairSelect = ({ label, value, onChange, disabledIds = [] }) => (
     <div className="flex flex-col">
       <label className="text-sm text-gray-400 mb-1">{label}</label>
       <select
@@ -93,25 +116,44 @@ export default function NewMatch() {
         onChange={(e) => onChange(pairs.find((p) => p.id === e.target.value))}
       >
         <option value="">— selecciona —</option>
-        {pairs.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.id.slice(0, 8)} · lvl {Number(p.average_score || 6).toFixed(1)} ·{" "}
-            {p.competitiveness || "intermedio"}
-          </option>
-        ))}
+        {pairs
+          .filter((p) => !disabledIds.includes(p.id))
+          .map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.id.slice(0, 8)} · lvl {Number(p.average_score || 6).toFixed(1)} · {p.competitiveness || "intermedio"}
+            </option>
+          ))}
       </select>
       {value?.player1_id || value?.player2_id ? (
         <div className="text-xs text-gray-500 mt-1 space-x-2">
           {value.player1_id && (
-            <a className="underline" href={`/players/${value.player1_id}`}>Ver jugador 1</a>
+            <a className="underline" href={`/players/${value.player1_id}`}>
+              Ver jugador 1
+            </a>
           )}
           {value.player2_id && (
-            <a className="underline" href={`/players/${value.player2_id}`}>Ver jugador 2</a>
+            <a className="underline" href={`/players/${value.player2_id}`}>
+              Ver jugador 2
+            </a>
           )}
         </div>
       ) : null}
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen text-white px-6 py-10">Cargando…</div>
+    );
+  }
+  if (!user) {
+    return (
+      <div className="min-h-screen text-white px-6 py-10">Necesitas iniciar sesión.</div>
+    );
+  }
+
+  const myId = user?.id;
+  const disabledForB = pairA ? [pairA.id] : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white px-6 py-10">
@@ -121,11 +163,63 @@ export default function NewMatch() {
           Elige las parejas, modo y (opcional) fecha/club. Guardaremos el equilibrio del partido.
         </p>
 
+        {/* Aviso si no se detecta tu pareja */}
+        {!pairA && (
+          <div className="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm">
+            No se ha detectado tu pareja. Crea/activa una en tu área o en la tabla <b>pairs</b>.
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-4">
           <PairSelect label="Pareja A (tú)" value={pairA} onChange={setPairA} />
-          <PairSelect label="Pareja B (rival)" value={pairB} onChange={setPairB} />
+          <PairSelect label="Pareja B (rival)" value={pairB} onChange={setPairB} disabledIds={disabledForB} />
 
-          {/* ... resto del JSX igual que ya tenías ... */}
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-400 mb-1">Modo</label>
+            <div className="flex gap-2 bg-white/5 border border-white/10 rounded-xl p-1">
+              <button
+                onClick={() => setMode("friendly")}
+                className={`px-4 py-2 rounded-lg ${mode === "friendly" ? "bg-emerald-500 text-black" : "text-white"}`}
+              >
+                Amistoso
+              </button>
+              <button
+                onClick={() => setMode("competitive")}
+                className={`px-4 py-2 rounded-lg ${mode === "competitive" ? "bg-emerald-500 text-black" : "text-white"}`}
+              >
+                Competitivo
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-400 mb-1">Ciudad / Club</label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Ciudad o club"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-400 mb-1">Fecha</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-400 mb-1">Hora</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2"
+            />
+          </div>
         </div>
 
         {/* Compatibilidad en vivo */}
@@ -148,7 +242,10 @@ export default function NewMatch() {
 
         {createdMatchId && (
           <div className="mt-5 p-4 rounded-2xl bg-white/5 border border-emerald-500/40">
-            {/* ... botones de navegación ... */}
+            <div className="text-sm">
+              Partido guardado. Puedes ir a <a className="underline" href="/landing/matches/mis">Mis partidos</a> o
+              enviar feedback tras el partido.
+            </div>
           </div>
         )}
       </div>
