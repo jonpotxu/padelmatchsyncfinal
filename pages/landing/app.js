@@ -1,5 +1,5 @@
 // /pages/landing/app.js
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import SiteLayout from "@/components/SiteLayout";
 import { useAuth } from "@/src/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -45,7 +45,7 @@ export default function MyArea() {
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
-        .select("id,name,level,position,shots,attitude,competitiveness,avatar_url,avatar_style")
+        .select("id,name,level,position,shots,attitude,competitiveness,city,avatar_url,avatar_style")
         .eq("id", user.id)
         .maybeSingle();
       setMyProfile(p || null);
@@ -66,7 +66,7 @@ export default function MyArea() {
       const pid = pairLink.partner_id;
       const { data: p } = await supabase
         .from("profiles")
-        .select("id,name,level,position,shots,attitude,competitiveness,avatar_url,avatar_style")
+        .select("id,name,level,position,shots,attitude,competitiveness,city,avatar_url,avatar_style")
         .eq("id", pid)
         .maybeSingle();
       setPartnerProfile(p || null);
@@ -87,7 +87,10 @@ export default function MyArea() {
       const { data, error } = await supabase
         .from("pairs")
         .select("*")
-        .or(`and(player1_id.eq.${user.id},player2_id.eq.${pairLink.partner_id}),and(player1_id.eq.${pairLink.partner_id},player2_id.eq.${user.id})`)
+        .or(
+          `and(player1_id.eq.${user.id},player2_id.eq.${pairLink.partner_id}),` +
+          `and(player1_id.eq.${pairLink.partner_id},player2_id.eq.${user.id})`
+        )
         .limit(1)
         .maybeSingle();
       if (!error) setMyPair(data || null);
@@ -108,6 +111,9 @@ export default function MyArea() {
     })();
   }, [myPair]);
 
+  const myBadges = useMemo(() => toBadges(myProfile, myAgg), [myProfile, myAgg]);
+  const partnerBadges = useMemo(() => toBadges(partnerProfile, partnerAgg), [partnerProfile, partnerAgg]);
+
   if (loading) {
     return (
       <SiteLayout>
@@ -123,68 +129,92 @@ export default function MyArea() {
     );
   }
 
-  const myBadges = toBadges(myProfile, myAgg);
-  const partnerBadges = toBadges(partnerProfile, partnerAgg);
-
   return (
     <SiteLayout>
       <h1 className="text-3xl font-bold mb-2">Mi área</h1>
       <p className="text-gray-300 mb-8">Hola, <b>{user.email}</b> 👋</p>
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* ===== IZQUIERDA (2 cols): tus tarjetas + acciones ===== */}
+        {/* ===== IZQUIERDA (2 cols): tarjetas + acciones ===== */}
         <div className="md:col-span-2 space-y-6">
           {/* Tarjetas estilo FIFA: tú + pareja */}
           <div className="grid md:grid-cols-2 gap-6">
-            <FifaCard
-              name={myProfile?.name || "Jugador"}
-              level={myProfile?.level ?? 6}
-              position={myProfile?.position || "—"}
-              shots={myProfile?.shots || []}
-              avatarUrl={myProfile?.avatar_url}
-              badges={myBadges}
-              footer={
-                <div className="flex gap-2">
-                  <a href="/landing/profile/edit" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
-                    Editar perfil
-                  </a>
-                </div>
-              }
-            />
-            <FifaCard
-              name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
-              level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
-              position={partnerProfile?.position || (pairLink ? "—" : "")}
-              shots={partnerProfile?.shots || []}
-              avatarUrl={partnerProfile?.avatar_url}
-              badges={partnerBadges}
-              footer={
-                pairLink ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={async () => {
-                        setMsg("");
-                        await supabase
-                          .from("partner_links")
-                          .update({ active: false })
-                          .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
-                        setMsg("✅ Pareja marcada como inactiva");
-                        setPartnerProfile(null);
-                        setMyPair(null);
-                      }}
-                      className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
-                    >
-                      Romper pareja
-                    </button>
-                  </div>
+            <div className="space-y-3">
+              <FifaCard
+                name={myProfile?.name || (user.email || "").split("@")[0]}
+                rating={Math.round(Number(myProfile?.level ?? 5.8) * 10)}
+                level={Number(myProfile?.level ?? 5.8).toFixed(1)}
+                position={myProfile?.position || "indiferente"}
+                city={myProfile?.city}
+                shots={myProfile?.shots || []}
+                avatarUrl={myProfile?.avatar_url}
+                badges={myBadges}
+                stats={{ pac: 75, sho: 76, pas: 78, dri: 77, def: 74, phy: 79 }}
+                accent="emerald"
+              />
+              <div className="flex gap-2">
+                <a
+                  href="/landing/profile/edit"
+                  className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                >
+                  Editar perfil
+                </a>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <FifaCard
+                name={
+                  partnerProfile?.name ||
+                  (pairLink ? "Tu pareja" : "Sin pareja")
+                }
+                rating={
+                  partnerProfile?.level != null
+                    ? Math.round(Number(partnerProfile.level) * 10)
+                    : pairLink ? 60 : 0
+                }
+                level={
+                  partnerProfile?.level != null
+                    ? Number(partnerProfile.level).toFixed(1)
+                    : pairLink ? "—" : "0.0"
+                }
+                position={partnerProfile?.position || (pairLink ? "—" : "—")}
+                city={partnerProfile?.city || "—"}
+                shots={partnerProfile?.shots || []}
+                avatarUrl={partnerProfile?.avatar_url}
+                badges={partnerBadges}
+                stats={{ pac: 72, sho: 70, pas: 73, dri: 71, def: 69, phy: 74 }}
+                accent="cyan"
+                compact
+              />
+              <div className="flex gap-2">
+                {pairLink ? (
+                  <button
+                    onClick={async () => {
+                      setMsg("");
+                      await supabase
+                        .from("partner_links")
+                        .update({ active: false })
+                        .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
+                      setMsg("✅ Pareja marcada como inactiva");
+                      setPartnerProfile(null);
+                      setMyPair(null);
+                      setPairLink(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                  >
+                    Romper pareja
+                  </button>
                 ) : (
-                  <div className="text-sm text-gray-400">No tienes pareja activa.</div>
-                )
-              }
-            />
+                  <span className="text-sm text-gray-400">
+                    No tienes pareja activa.
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Avatar editor (para ti) */}
+          {/* Editor de avatar (para ti) */}
           <AvatarMaker
             userId={user.id}
             initialStyle={myProfile?.avatar_style}
@@ -196,13 +226,22 @@ export default function MyArea() {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Partidos</h3>
             <div className="flex flex-wrap gap-3">
-              <a href="/landing/matches/find" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
+              <a
+                href="/landing/matches/find"
+                className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+              >
                 Buscar rivales
               </a>
-              <a href="/landing/matches/new" className="px-4 py-2 rounded-xl bg-emerald-500 text-black">
+              <a
+                href="/landing/matches/new"
+                className="px-4 py-2 rounded-xl bg-emerald-500 text-black"
+              >
                 Crear partido
               </a>
-              <a href="/landing/matches/mis" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
+              <a
+                href="/landing/matches/mis"
+                className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+              >
                 Mis partidos
               </a>
             </div>
@@ -210,17 +249,14 @@ export default function MyArea() {
           </div>
         </div>
 
-        {/* ===== DERECHA (1 col): indicadores + últimos 3 ===== */}
+        {/* ===== DERECHA (1 col): indicadores + últimos 3 + invitar ===== */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Indicadores rápidos</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
                 <div className="text-xs text-gray-400">Partidos (últ. 30d)</div>
-                <div className="text-2xl font-bold">
-                  {/* Placeholder hasta que conectemos la métrica real */}
-                  {recentMatches.length}
-                </div>
+                <div className="text-2xl font-bold">{recentMatches.length}</div>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
                 <div className="text-xs text-gray-400">Valoraciones recibidas</div>
@@ -236,16 +272,25 @@ export default function MyArea() {
                 <div key={m.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
                   <div className="text-sm font-semibold">{m.title || "Partido"}</div>
                   <div className="text-xs text-gray-400">
-                    {m.mode || "—"} · {m.location || "—"} · {m.date ? new Date(m.date).toLocaleString() : "sin fecha"}
+                    {m.mode || "—"} · {m.location || "—"} ·{" "}
+                    {m.date ? new Date(m.date).toLocaleString() : "sin fecha"}
                   </div>
                   <div className="mt-2 flex gap-2">
-                    <a href={`/landing/feedback/${m.id}`} className="text-xs px-3 py-1 rounded-lg bg-emerald-500 text-black">
+                    <a
+                      href={`/landing/feedback/${m.id}`}
+                      className="text-xs px-3 py-1 rounded-lg bg-emerald-500 text-black"
+                    >
                       Dar feedback
                     </a>
                     <a
                       className="text-xs px-3 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10"
-                      href={m.location ? `https://playtomic.io/search?where=${encodeURIComponent(m.location)}` : "https://playtomic.io"}
-                      target="_blank" rel="noreferrer"
+                      href={
+                        m.location
+                          ? `https://playtomic.io/search?where=${encodeURIComponent(m.location)}`
+                          : "https://playtomic.io"
+                      }
+                      target="_blank"
+                      rel="noreferrer"
                     >
                       Reservar en Playtomic
                     </a>
@@ -258,7 +303,6 @@ export default function MyArea() {
             </div>
           </div>
 
-          {/* Invitar pareja aquí abajo en la sidebar */}
           <InvitePartner user={user} />
         </div>
       </div>
