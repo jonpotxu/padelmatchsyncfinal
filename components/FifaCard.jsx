@@ -24,7 +24,12 @@ export default function FifaCard({
   const rating = Math.max(1, Math.round(Number(level) * 10));
 
   return (
-    <div className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]">
+    <div
+      className={
+        `relative rounded-3xl border border-white/10 bg-gradient-to-b
+         from-white/[0.04] to-white/[0.02] p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] ` + className
+      }
+    >
       {/* fondo punteado */}
       <div
         aria-hidden

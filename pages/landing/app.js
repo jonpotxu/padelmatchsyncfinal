@@ -143,59 +143,66 @@ export default function MyArea() {
   return (
     <SiteLayout>
       <h1 className="text-3xl font-bold mb-2">Mi área</h1>
-      <p className="text-gray-300 mb-8">Hola, <b>{user.email}</b> 👋</p>
+		<p className="text-gray-300 mb-8">
+			Hola, <b>{myProfile?.name || user.email}</b> 👋
+		</p>
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* IZQUIERDA: 2 cols (tarjetas + acciones de partido) */}
         <div className="md:col-span-2 space-y-6">
           {/* Tarjetas mismas dimensiones */}
           <div className="grid md:grid-cols-2 gap-6">
-            <FifaCard
-              name={myProfile?.name || "Jugador"}
-              level={myProfile?.level ?? 6}
-              position={myProfile?.position || "flex"}
-              initials={myInitials}
-              badges={myBadges}
-              stats={makeStats(myProfile)}
-              footer={
-                <a
-                  href="/landing/profile/edit"
-                  className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
-                >
-                  Editar perfil
-                </a>
-              }
-            />
-            <FifaCard
-              name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
-              level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
-              position={partnerProfile?.position || "flex"}
-              initials={partnerInitials}
-              badges={partnerBadges}
-              stats={makeStats(partnerProfile)}
-              footer={
-                pairLink ? (
-                  <button
-                    onClick={async () => {
-                      setMsg("");
-                      await supabase
-                        .from("partner_links")
-                        .update({ active: false })
-                        .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
-                      setMsg("✅ Pareja marcada como inactiva");
-                      setPartnerProfile(null);
-                      setMyPair(null);
-                    }}
-                    className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
-                  >
-                    Romper pareja
-                  </button>
-                ) : (
-                  <span className="text-sm text-gray-400">No tienes pareja activa.</span>
-                )
-              }
-            />
-          </div>
+           <div className="grid md:grid-cols-2 gap-6">
+  <FifaCard
+    className="min-h-[260px] md:min-h-[300px]"    // <- alarga aquí
+    name={myProfile?.name || "Jugador"}
+    level={myProfile?.level ?? 6}
+    position={myProfile?.position || "flex"}
+    initials={(myProfile?.name || user.email || "J").slice(0,1).toUpperCase()}
+    badges={myBadges}
+    stats={makeStats(myProfile)}
+    footer={
+      <a
+        href="/landing/profile/edit"
+        className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+      >
+        Editar perfil
+      </a>
+    }
+  />
+
+  <FifaCard
+    className="min-h-[260px] md:min-h-[300px]"    // <- y aquí
+    name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
+    level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
+    position={partnerProfile?.position || "flex"}
+    initials={(partnerProfile?.name || "T").slice(0,1).toUpperCase()}
+    badges={partnerBadges}
+    stats={makeStats(partnerProfile)}
+    footer={
+      pairLink ? (
+        <button
+          onClick={async () => {
+            setMsg("");
+            await supabase
+              .from("partner_links")
+              .update({ active: false })
+              .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
+            setMsg("✅ Pareja marcada como inactiva");
+            setPartnerProfile(null);
+            setMyPair(null);
+          }}
+          className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+        >
+          Romper pareja
+        </button>
+      ) : (
+        <span className="text-sm text-gray-400">No tienes pareja activa.</span>
+      )
+    }
+  />
+</div>
+
 
           {/* Acciones de partidos (debajo de las tarjetas) */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
