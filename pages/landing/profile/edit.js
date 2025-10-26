@@ -1,155 +1,95 @@
 // /pages/landing/profile/edit.js
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import SiteLayout from "@/components/SiteLayout";
 import { useAuth } from "@/src/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
+import AvatarUploader from "@/components/AvatarUploader";
 
-const POSITIONS = [
+const POS = [
   { key: "drive", label: "Drive (derecha)" },
   { key: "reves", label: "Revés (izquierda)" },
   { key: "flex", label: "Indiferente" },
 ];
-const ATTITUDE = [
-  { key: "diversion", label: "Diversión" },
-  { key: "mixto", label: "Mixto" },
-  { key: "competitivo", label: "Competitivo" },
-];
-const COMPETITIVENESS = [
-  { key: "baja", label: "Baja" },
-  { key: "media", label: "Media" },
-  { key: "alta", label: "Alta" },
-];
-const FREQUENCY = [
-  { key: "1x", label: "1/semana" },
-  { key: "2x", label: "2/semana" },
-  { key: "3x", label: "3+/semana" },
-];
-const WALLS = [
-  { key: "baja", label: "Básico" },
-  { key: "media", label: "Intermedio" },
-  { key: "alta", label: "Avanzado" },
-];
-const SHOTS = [
-  "bandeja",
-  "víbora",
-  "smash",
-  "chiquita",
-  "globo",
-  "salida-pared",
-  "dejada",
-  "contra-pared",
-];
 
-export default function EditProfilePage() {
+const ATTITUDE = ["Diversión", "Mixto", "Competitivo"];
+const COMP = ["Baja", "Media", "Alta"];
+const FREQ = ["1/semana", "2/semana", "3+/semana"];
+const PAREDES = ["Básico", "Intermedio", "Avanzado"];
+const DEFENSA = [
+  { k: "basica", label: "Básica" },
+  { k: "intermedia", label: "Intermedia" },
+  { k: "avanzada", label: "Avanzada" },
+];
+const GOLPES = ["bandeja", "víbora", "smash", "chiquita", "globo", "salida-pared", "dejada", "contra-pared"];
+
+export default function EditProfile() {
   const { user, loading } = useAuth();
-  const router = useRouter();
-
-  const [form, setForm] = useState({
+  const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [p, setP] = useState({
     name: "",
     city: "",
-    level: 5.0,
-    position: "",
-    attitude: "",
-    competitiveness: "",
-    frequency: "",
-    walls: "",
-    shots: [],
-    objective: "",
-    avatar_url: "",
-    seeking_pair: false,
-    pair_status: null,
+    level: 6,
+    position: "flex",
+    attitude: null,
+    competitiveness: null,
+    frequency: null,
+    paredes: "Básico",
+    defense: null, // <- NUEVO
+    shots: [],     // array<string>
+    public_profile: false,
+    avatar_url: null,
   });
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
 
-  // Cargar perfil actual
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "name, city, level, position, attitude, competitiveness, frequency, walls, shots, objective, avatar_url, seeking_pair, pair_status"
+          "id,name,city,level,position,attitude,competitiveness,frequency,paredes,defense,shots,public_profile,avatar_url"
         )
         .eq("id", user.id)
         .maybeSingle();
       if (!error && data) {
-        setForm({
-          name: data.name || "",
-          city: data.city || "",
-          level: Number(data.level ?? 5) || 5,
-          position: data.position || "",
-          attitude: data.attitude || "",
-          competitiveness: data.competitiveness || "",
-          frequency: data.frequency || "",
-          walls: data.walls || "",
-          shots: Array.isArray(data.shots) ? data.shots : [],
-          objective: data.objective || "",
-          avatar_url: data.avatar_url || "",
-          seeking_pair: !!data.seeking_pair,
-          pair_status: data.pair_status || null,
-        });
+        setP((prev) => ({ ...prev, ...data, shots: data.shots || [] }));
       }
     })();
   }, [user]);
 
-  const canSave = useMemo(() => {
-    return (
-      form.name &&
-      form.city &&
-      form.position &&
-      form.attitude &&
-      form.competitiveness &&
-      form.frequency &&
-      form.walls &&
-      form.level >= 1 &&
-      form.level <= 7
-    );
-  }, [form]);
-
-  const toggleArray = (key, value) => {
-    setForm((f) => {
-      const set = new Set(f[key] || []);
-      if (set.has(value)) set.delete(value);
-      else set.add(value);
-      return { ...f, [key]: Array.from(set) };
+  const toggleShot = (s) =>
+    setP((prev) => {
+      const set = new Set(prev.shots || []);
+      set.has(s) ? set.delete(s) : set.add(s);
+      return { ...prev, shots: Array.from(set) };
     });
-  };
 
-  const save = async (e) => {
-    e?.preventDefault?.();
-    if (!user || busy || !canSave) return;
-    setBusy(true);
+  const save = async () => {
+    if (!user) return;
     setMsg("");
-
+    setSaving(true);
     try {
       const payload = {
-        name: form.name,
-        city: form.city,
-        level: Number(form.level),
-        position: form.position,
-        attitude: form.attitude,
-        competitiveness: form.competitiveness,
-        frequency: form.frequency,
-        walls: form.walls,
-        shots: form.shots,
-        objective: form.objective || null,
-        avatar_url: form.avatar_url || null,
-        seeking_pair: !!form.seeking_pair,
-        pair_status: form.pair_status || null,
+        name: p.name || null,
+        city: p.city || null,
+        level: p.level ?? 6,
+        position: p.position || "flex",
+        attitude: p.attitude || null,
+        competitiveness: p.competitiveness || null,
+        frequency: p.frequency || null,
+        paredes: p.paredes || null,
+        defense: p.defense || null, // <- guardar NUEVO
+        shots: p.shots || [],
+        public_profile: !!p.public_profile,
+        avatar_url: p.avatar_url || null,
       };
-
       const { error } = await supabase.from("profiles").update(payload).eq("id", user.id);
       if (error) throw error;
-
-      setMsg("✅ Perfil actualizado.");
-      // Volver a “Mi área”
-      setTimeout(() => router.push("/landing/app"), 600);
-    } catch (err) {
-      setMsg("❌ No se pudo guardar. " + (err?.message || ""));
+      setMsg("✅ Perfil guardado");
+    } catch (e) {
+      setMsg("❌ No se pudo guardar el perfil");
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
@@ -163,252 +103,224 @@ export default function EditProfilePage() {
   if (!user) {
     return (
       <SiteLayout>
-        <p className="text-gray-400">Necesitas iniciar sesión.</p>
+        <p className="text-gray-400">No has iniciado sesión.</p>
       </SiteLayout>
     );
   }
 
   return (
     <SiteLayout>
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">Editar perfil</h1>
-        <p className="text-gray-400 mb-6">Actualiza tus datos para un mejor emparejamiento.</p>
+      <h1 className="text-3xl font-bold mb-2">Editar perfil</h1>
+      <p className="text-gray-400 mb-6">Ajusta tu información y preferencias de juego.</p>
 
-        <form onSubmit={save} className="space-y-8">
-          {/* Identidad */}
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h3 className="text-lg font-semibold mb-3">Tu información</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Nombre</label>
-                <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Ciudad</label>
-                <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-                  value={form.city}
-                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">
-                  Nivel estimado <span className="text-gray-500">(1.0–7.0)</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={1}
-                    max={7}
-                    step={0.1}
-                    value={form.level}
-                    onChange={(e) => setForm((f) => ({ ...f, level: parseFloat(e.target.value) }))}
-                    className="w-full accent-emerald-500"
-                  />
-                  <span className="w-12 text-right">{Number(form.level).toFixed(1)}</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Avatar (URL)</label>
-                <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-                  placeholder="https://…/mi-avatar.png"
-                  value={form.avatar_url}
-                  onChange={(e) => setForm((f) => ({ ...f, avatar_url: e.target.value }))}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Juego y preferencias */}
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h3 className="text-lg font-semibold mb-3">Cómo te gusta jugar</h3>
-
-            {/* Posición */}
-            <div className="mb-4">
-              <div className="text-sm text-gray-400 mb-2">Posición preferida</div>
-              <div className="flex flex-wrap gap-2">
-                {POSITIONS.map((p) => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, position: p.key }))}
-                    className={`px-4 py-2 rounded-xl border ${
-                      form.position === p.key
-                        ? "bg-emerald-500 text-black border-emerald-500"
-                        : "bg-white/5 border-white/10"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actitud / Competitividad / Frecuencia */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Actitud</div>
-                <div className="flex flex-wrap gap-2">
-                  {ATTITUDE.map((a) => (
-                    <button
-                      key={a.key}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, attitude: a.key }))}
-                      className={`px-3 py-2 rounded-xl border ${
-                        form.attitude === a.key
-                          ? "bg-emerald-500 text-black border-emerald-500"
-                          : "bg-white/5 border-white/10"
-                      }`}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Competitividad</div>
-                <div className="flex flex-wrap gap-2">
-                  {COMPETITIVENESS.map((c) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, competitiveness: c.key }))}
-                      className={`px-3 py-2 rounded-xl border ${
-                        form.competitiveness === c.key
-                          ? "bg-emerald-500 text-black border-emerald-500"
-                          : "bg-white/5 border-white/10"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Frecuencia deseada</div>
-                <div className="flex flex-wrap gap-2">
-                  {FREQUENCY.map((f) => (
-                    <button
-                      key={f.key}
-                      type="button"
-                      onClick={() => setForm((s) => ({ ...s, frequency: f.key }))}
-                      className={`px-3 py-2 rounded-xl border ${
-                        form.frequency === f.key
-                          ? "bg-emerald-500 text-black border-emerald-500"
-                          : "bg-white/5 border-white/10"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Paredes + Golpes */}
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Manejo de paredes</div>
-                <div className="flex flex-wrap gap-2">
-                  {WALLS.map((w) => (
-                    <button
-                      key={w.key}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, walls: w.key }))}
-                      className={`px-3 py-2 rounded-xl border ${
-                        form.walls === w.key
-                          ? "bg-emerald-500 text-black border-emerald-500"
-                          : "bg-white/5 border-white/10"
-                      }`}
-                    >
-                      {w.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400 mb-2">Golpes que dominas</div>
-                <div className="flex flex-wrap gap-2">
-                  {SHOTS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => toggleArray("shots", s)}
-                      className={`px-3 py-2 rounded-xl border ${
-                        form.shots.includes(s)
-                          ? "bg-emerald-500 text-black border-emerald-500"
-                          : "bg-white/5 border-white/10"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Objetivo y opciones */}
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h3 className="text-lg font-semibold mb-3">Extras</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="text-sm text-gray-400 mb-1 block">Objetivo (opcional)</label>
-                <input
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2"
-                  placeholder="Ej.: Mejorar juego en pared, preparar torneo…"
-                  value={form.objective}
-                  onChange={(e) => setForm((f) => ({ ...f, objective: e.target.value }))}
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-300">
-                <input
-                  type="checkbox"
-                  className="accent-emerald-500"
-                  checked={form.seeking_pair}
-                  onChange={(e) => setForm((f) => ({ ...f, seeking_pair: e.target.checked }))}
-                />
-                Estoy buscando pareja
-              </label>
-            </div>
-          </section>
-
-          {/* Acciones */}
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={!canSave || busy}
-              className={`px-5 py-3 rounded-2xl ${
-                canSave && !busy
-                  ? "bg-emerald-500 text-black"
-                  : "bg-white/10 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              {busy ? "Guardando…" : "Guardar cambios"}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="px-5 py-3 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10"
-            >
-              Cancelar
-            </button>
-            <a href="/landing/app" className="text-sm text-gray-400 underline ml-auto">
-              Volver a Mi área
-            </a>
+      {/* Básicos */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 mb-6">
+        <h3 className="text-lg font-semibold mb-3">Básicos</h3>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-400">Nombre</label>
+            <input
+              className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2"
+              value={p.name || ""}
+              onChange={(e) => setP((x) => ({ ...x, name: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-400">Ciudad</label>
+            <input
+              className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2"
+              value={p.city || ""}
+              onChange={(e) => setP((x) => ({ ...x, city: e.target.value }))}
+            />
           </div>
 
-          {msg && <p className="text-sm mt-2">{msg}</p>}
-        </form>
+          <div>
+            <label className="text-sm text-gray-400">Nivel (1.0–7.0)</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={7}
+                step={0.1}
+                className="w-full accent-emerald-500"
+                value={Number(p.level ?? 6)}
+                onChange={(e) => setP((x) => ({ ...x, level: parseFloat(e.target.value) }))}
+              />
+              <span className="w-12 text-right">{Number(p.level ?? 6).toFixed(1)}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-400">Posición preferida</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {POS.map((x) => (
+                <button
+                  key={x.key}
+                  onClick={() => setP((prev) => ({ ...prev, position: x.key }))}
+                  className={`px-3 py-2 rounded-xl border ${
+                    p.position === x.key
+                      ? "bg-emerald-500 text-black border-emerald-500"
+                      : "bg-white/5 border-white/10 hover:bg-white/10"
+                  }`}
+                >
+                  {x.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cómo te gusta jugar */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 mb-6">
+        <h3 className="text-lg font-semibold mb-3">Cómo te gusta jugar</h3>
+
+        {/* Actitud */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-400 mb-2">Actitud</div>
+          <div className="flex flex-wrap gap-2">
+            {ATTITUDE.map((a) => (
+              <button
+                key={a}
+                onClick={() => setP((x) => ({ ...x, attitude: a }))}
+                className={`px-4 py-2 rounded-xl border ${
+                  p.attitude === a ? "bg-emerald-500 text-black border-transparent" : "bg-white/5 border-white/10"
+                }`}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Competitividad */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-400 mb-2">Competitividad</div>
+          <div className="flex flex-wrap gap-2">
+            {COMP.map((c) => (
+              <button
+                key={c}
+                onClick={() => setP((x) => ({ ...x, competitiveness: c }))}
+                className={`px-4 py-2 rounded-xl border ${
+                  p.competitiveness === c
+                    ? "bg-emerald-500 text-black border-transparent"
+                    : "bg-white/5 border-white/10"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Frecuencia */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-400 mb-2">Frecuencia deseada</div>
+          <div className="flex flex-wrap gap-2">
+            {FREQ.map((f) => (
+              <button
+                key={f}
+                onClick={() => setP((x) => ({ ...x, frequency: f }))}
+                className={`px-4 py-2 rounded-xl border ${
+                  p.frequency === f ? "bg-emerald-500 text-black border-transparent" : "bg-white/5 border-white/10"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Manejo de paredes */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-400 mb-2">Manejo de paredes</div>
+          <div className="flex flex-wrap gap-2">
+            {PAREDES.map((g) => (
+              <button
+                key={g}
+                onClick={() => setP((x) => ({ ...x, paredes: g }))}
+                className={`px-4 py-2 rounded-xl border ${
+                  p.paredes === g ? "bg-emerald-500 text-black border-transparent" : "bg-white/5 border-white/10"
+                }`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* DEFENSA — NUEVO (entre paredes y golpes) */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-400 mb-2">Defensa</div>
+          <div className="flex flex-wrap gap-2">
+            {DEFENSA.map((d) => (
+              <button
+                key={d.k}
+                onClick={() => setP((x) => ({ ...x, defense: d.k }))}
+                className={`px-4 py-2 rounded-xl border ${
+                  p.defense === d.k ? "bg-emerald-500 text-black border-transparent" : "bg-white/5 border-white/10"
+                }`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Golpes que dominas */}
+        <div>
+          <div className="text-sm text-gray-400 mb-2">Golpes que dominas</div>
+          <div className="flex flex-wrap gap-2">
+            {GOLPES.map((s) => (
+              <button
+                key={s}
+                onClick={() => toggleShot(s)}
+                className={`px-4 py-2 rounded-xl border ${
+                  (p.shots || []).includes(s)
+                    ? "bg-emerald-500 text-black border-transparent"
+                    : "bg-white/5 border-white/10"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Extras */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <h3 className="text-lg font-semibold mb-3">Extras</h3>
+        <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            className="accent-emerald-500"
+            checked={!!p.public_profile}
+            onChange={(e) => setP((x) => ({ ...x, public_profile: e.target.checked }))}
+          />
+          Hacer mi perfil público
+        </label>
+
+        {/* Avatar debajo de Extras */}
+        <div className="mt-6">
+          <AvatarUploader
+            userId={user.id}
+            onSaved={(url) => setP((x) => ({ ...x, avatar_url: url }))}
+          />
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center gap-3">
+        <button
+          onClick={save}
+          disabled={saving}
+          className={`px-5 py-2 rounded-2xl font-semibold ${
+            saving ? "bg-white/10 text-gray-500 cursor-not-allowed" : "bg-emerald-500 text-black hover:brightness-110"
+          }`}
+        >
+          {saving ? "Guardando…" : "Guardar cambios"}
+        </button>
+        {msg && <span className="text-sm">{msg}</span>}
       </div>
     </SiteLayout>
   );

@@ -2,169 +2,88 @@
 import clsx from "clsx";
 
 /**
- * FifaCard — tarjeta estilo FIFA adaptada al theme actual.
- *
  * Props:
- * - name: string
- * - rating: number | string   (ej. 78)  -> grande arriba a la izquierda
- * - level: number | string    (ej. 5.8) -> se muestra pequeño bajo rating
- * - position: "drive" | "revés" | "flex" | string
- * - city: string (opcional)
- * - avatarUrl: string (opcional)
- * - shots: string[] (opcional)  -> se muestran como badges
- * - badges: string[] (opcional) -> p.ej. ["competitivo", "constante"]
- * - stats:  { pac, sho, pas, dri, def, phy }  (números 0–99)
- * - accent: "emerald" | "cyan" | "violet" | "amber" | etc (tailwind color)
- * - compact: boolean (versión reducida)
+ * - name, level, position, avatarUrl
+ * - badges: string[]
+ * - stats: { ATQ:number, DEF:number, COM:number, COL:number }   // NUEVO
+ * - footer: ReactNode
  */
 export default function FifaCard({
-  name = "Jugador/a",
-  rating = 78,
-  level = 5.8,
-  position = "indiferente",
-  city,
+  name = "Jugador",
+  level = 6,
+  position = "—",
   avatarUrl,
-  shots = [],
   badges = [],
-  stats = {},
-  accent = "emerald",
-  compact = false,
+  stats = { ATQ: 72, DEF: 70, COM: 71, COL: 74 },
+  footer,
+  className,
 }) {
-  const {
-    pac = 78, // velocidad
-    sho = 75, // pegada
-    pas = 76, // pase
-    dri = 77, // volea/definición
-    def = 74, // defensa
-    phy = 79, // físico/consistencia
-  } = stats;
-
-  // Inicial del avatar
-  const initial = (name || "?").trim().charAt(0).toUpperCase();
-
-  // Paleta de acento
-  const accentRing = `ring-${accent}-400/40`;
-  const accentGlowFrom = `from-${accent}-400/25`;
-  const accentGlowTo = `to-${accent}-300/10`;
+  const initial = (name || "?").slice(0, 1).toUpperCase();
+  const levelInt = Math.round(level * 10); // para un “overall” visual
 
   return (
     <div
       className={clsx(
-        "relative rounded-[28px] p-[2px] transition-transform duration-300 hover:-translate-y-0.5",
-        "bg-gradient-to-br",
-        accentGlowFrom,
-        accentGlowTo,
-        "shadow-[0_10px_40px_rgba(16,185,129,.16)]" // queda bien con emerald; con otros acentos sigue discreto
+        "relative rounded-3xl border border-white/10 bg-gradient-to-b from-[#0f172a] to-[#0b1220] p-5 shadow-[0_10px_40px_rgba(0,0,0,0.35)]",
+        "before:pointer-events-none before:absolute before:inset-0 before:rounded-3xl before:bg-[radial-gradient(transparent_1px,rgba(255,255,255,0.04)_1px)] before:bg-[length:18px_18px]",
+        "min-h-[230px]",
+        className
       )}
     >
-      {/* Inner glass card */}
-      <div
-        className={clsx(
-          "relative rounded-[26px] px-5 pt-5 pb-4",
-          "bg-gradient-to-b from-white/10 via-white/5 to-white/0",
-          "border border-white/10 backdrop-blur"
-        )}
-        style={{
-          // textura sutil de “estrellas”
-          backgroundImage:
-            "radial-gradient(circle at 20% 12%,rgba(255,255,255,.08) 0 2px,transparent 3px)",
-          backgroundSize: "38px 38px",
-        }}
-      >
-        {/* Cabezal */}
-        <div className="flex items-start gap-3">
-          <div className="min-w-[54px]">
-            <div className="text-4xl leading-none font-extrabold tracking-tight">
-              {String(rating).padStart(2, "0")}
-            </div>
-            <div className="mt-0.5 text-xs text-white/70">Lvl {level}</div>
-            <div className="mt-0.5 text-[11px] uppercase tracking-wide text-white/70">
-              {position}
-            </div>
-          </div>
-
-          {/* Avatar */}
-          <div
-            className={clsx(
-              "relative h-20 w-20 shrink-0 rounded-full overflow-hidden ring-2",
-              accentRing,
-              "shadow-[0_0_0_6px_rgba(0,0,0,.35)]"
-            )}
-          >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full grid place-items-center bg-white/10 text-2xl font-bold">
-                {initial}
-              </div>
-            )}
-          </div>
-
-          {/* Nombre y meta */}
-          <div className="flex-1">
-            <div className="text-xl font-bold leading-tight">{name}</div>
-            <div className="text-xs text-white/70 mt-0.5">{city || "—"}</div>
-
-            {/* Badges */}
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {shots.slice(0, 3).map((s) => (
-                <span
-                  key={s}
-                  className="text-[11px] px-2 py-0.5 rounded-full border border-white/15 bg-white/5 text-white/85"
-                >
-                  {s}
-                </span>
-              ))}
-              {badges.slice(0, 2).map((b) => (
-                <span
-                  key={b}
-                  className="text-[11px] px-2 py-0.5 rounded-full border border-white/15 bg-white/5 text-white/70"
-                >
+      {/* Top row */}
+      <div className="flex items-center gap-4">
+        <div className="text-4xl font-extrabold leading-none">{levelInt}</div>
+        <div
+          className={clsx(
+            "h-16 w-16 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-xl font-bold",
+            avatarUrl ? "overflow-hidden p-0" : "p-0"
+          )}
+        >
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt={name} className="h-full w-full object-cover rounded-full" />
+          ) : (
+            <span>{initial}</span>
+          )}
+        </div>
+        <div className="flex-1">
+          <div className="text-lg font-semibold">{name}</div>
+          <div className="text-xs text-white/70">Lvl {level.toFixed(1)} — {position || "—"}</div>
+          {badges?.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {badges.map((b, i) => (
+                <span key={i} className="text-[10px] px-2 py-[2px] rounded-full border border-white/15 text-white/80">
                   {b}
                 </span>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Separador sutil */}
-        <div className="my-4 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-
-        {/* Stats */}
-        <div
-          className={clsx(
-            "grid gap-4",
-            compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"
           )}
-        >
-          <Stat label="PAC" value={pac} />
-          <Stat label="SHO" value={sho} />
-          <Stat label="PAS" value={pas} />
-          <Stat label="DRI" value={dri} />
-          <Stat label="DEF" value={def} />
-          <Stat label="PHY" value={phy} />
         </div>
       </div>
 
-      {/* Glow exterior muy sutil (blur) */}
-      <div
-        className="pointer-events-none absolute -inset-3 -z-10 rounded-[32px]"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 50% 10%, rgba(16,185,129,.18), transparent 70%)",
-          filter: "blur(12px)",
-          opacity: 0.7,
-        }}
-      />
-    </div>
-  );
-}
+      {/* Separator “rail” */}
+      <div className="mt-3 h-px w-full bg-white/10" />
 
-function Stat({ label, value }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <div className="text-[11px] tracking-widest text-white/60 w-8">{label}</div>
-      <div className="text-xl font-bold tabular-nums">{String(value).padStart(2, "0")}</div>
+      {/* 4 stats */}
+      <div className="grid grid-cols-4 gap-3 mt-4">
+        {[
+          ["ATQ", stats.ATQ ?? 72],
+          ["DEF", stats.DEF ?? 70],
+          ["COM", stats.COM ?? 71],
+          ["COL", stats.COL ?? 74],
+        ].map(([label, val]) => (
+          <div key={label}>
+            <div className="text-[11px] text-white/60">{label}</div>
+            <div className="text-xl font-bold">{Number(val ?? 0)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      {footer && <div className="mt-4">{footer}</div>}
+
+      {/* Sutil glow bottom */}
+      <div className="pointer-events-none absolute inset-x-4 bottom-0 h-3 rounded-full bg-emerald-400/10 blur-xl" />
     </div>
   );
 }
