@@ -1,37 +1,35 @@
 // /pages/landing/app.js
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SiteLayout from "@/components/SiteLayout";
 import { useAuth } from "@/src/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import FifaCard from "@/components/FifaCard";
-import AvatarMaker from "@/components/AvatarMaker";
 import InvitePartner from "@/components/InvitePartner";
 
 function toBadges(profile, agg) {
   const out = [];
-  if (profile?.attitude) out.push(profile.attitude);
   if (profile?.competitiveness) out.push(profile.competitiveness);
+  if (profile?.attitude) out.push(profile.attitude);
   if (agg?.fb_count > 0) out.push(`${agg.fb_count} fb`);
   return out;
 }
 
-// Mapea tu perfil -> 4 stats visuales
-function toStats(profile, agg) {
-  // Si en el futuro quieres usar promedios reales de feedback, mapéalos aquí.
-  // Por ahora, usa valores derivados del nivel:
-  const base = Math.max(50, Math.min(99, Math.round((profile?.level ?? 6) * 10)));
+// Generamos 4 stats a partir de datos básicos (placeholder hasta conectar feedback real)
+function makeStats(profile) {
+  const lvl = Number(profile?.level ?? 5);
+  const base = Math.min(99, Math.max(1, Math.round(lvl * 10)));
   return {
-    ATQ: base + 2,
-    DEF: base,
-    COM: base - 1,
-    COL: base + 3,
+    ATQ: base + 2,        // ataque
+    DEF: base,            // defensa
+    COM: base - 1,        // comunicación
+    COL: base + 3,        // colocación
   };
 }
 
 export default function MyArea() {
   const { user, loading } = useAuth();
 
-  const [pairLink, setPairLink] = useState(null);        // v_my_active_partner
+  const [pairLink, setPairLink] = useState(null);  // v_my_active_partner
   const [myProfile, setMyProfile] = useState(null);
   const [partnerProfile, setPartnerProfile] = useState(null);
   const [myAgg, setMyAgg] = useState(null);
@@ -40,7 +38,7 @@ export default function MyArea() {
   const [recentMatches, setRecentMatches] = useState([]);
   const [msg, setMsg] = useState("");
 
-  // 1) link activo
+  // 1) pareja activa
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -55,7 +53,7 @@ export default function MyArea() {
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
-        .select("id,name,level,position,shots,attitude,competitiveness,avatar_url")
+        .select("id,name,level,position,attitude,competitiveness")
         .eq("id", user.id)
         .maybeSingle();
       setMyProfile(p || null);
@@ -69,14 +67,14 @@ export default function MyArea() {
     })();
   }, [user]);
 
-  // 3) perfil pareja + agg
+  // 3) perfil partner
   useEffect(() => {
     if (!user || !pairLink?.partner_id) { setPartnerProfile(null); setPartnerAgg(null); return; }
     (async () => {
       const pid = pairLink.partner_id;
       const { data: p } = await supabase
         .from("profiles")
-        .select("id,name,level,position,shots,attitude,competitiveness,avatar_url")
+        .select("id,name,level,position,attitude,competitiveness")
         .eq("id", pid)
         .maybeSingle();
       setPartnerProfile(p || null);
@@ -90,31 +88,33 @@ export default function MyArea() {
     })();
   }, [user, pairLink]);
 
-  // 4) par de public.pairs
+  // 4) mi par (tabla pairs)
   useEffect(() => {
     if (!user || !pairLink?.partner_id) { setMyPair(null); return; }
     (async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("pairs")
         .select("*")
-        .or(`and(player1_id.eq.${user.id},player2_id.eq.${pairLink.partner_id}),and(player1_id.eq.${pairLink.partner_id},player2_id.eq.${user.id})`)
+        .or(
+          `and(player1_id.eq.${user.id},player2_id.eq.${pairLink.partner_id}),and(player1_id.eq.${pairLink.partner_id},player2_id.eq.${user.id})`
+        )
         .limit(1)
         .maybeSingle();
-      if (!error) setMyPair(data || null);
+      setMyPair(data || null);
     })();
   }, [user, pairLink]);
 
-  // 5) últimos 3 partidos
+  // 5) últimos partidos
   useEffect(() => {
     if (!myPair) { setRecentMatches([]); return; }
     (async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("matches")
         .select("*")
         .or(`pair_a_id.eq.${myPair.id},pair_b_id.eq.${myPair.id}`)
         .order("created_at", { ascending: false })
         .limit(3);
-      if (!error) setRecentMatches(data || []);
+      setRecentMatches(data || []);
     })();
   }, [myPair]);
 
@@ -135,8 +135,10 @@ export default function MyArea() {
 
   const myBadges = toBadges(myProfile, myAgg);
   const partnerBadges = toBadges(partnerProfile, partnerAgg);
-  const myStats = toStats(myProfile, myAgg);
-  const partnerStats = toStats(partnerProfile, partnerAgg);
+
+  // Iniciales
+  const myInitials = (myProfile?.name || user.email || "J").slice(0, 1).toUpperCase();
+  const partnerInitials = (partnerProfile?.name || "T").slice(0, 1).toUpperCase();
 
   return (
     <SiteLayout>
@@ -144,69 +146,65 @@ export default function MyArea() {
       <p className="text-gray-300 mb-8">Hola, <b>{user.email}</b> 👋</p>
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* ===== IZQUIERDA (2 cols) ===== */}
+        {/* IZQUIERDA: 2 cols (tarjetas + acciones de partido) */}
         <div className="md:col-span-2 space-y-6">
-          {/* FifaCards lado a lado, misma anchura/altura */}
+          {/* Tarjetas mismas dimensiones */}
           <div className="grid md:grid-cols-2 gap-6">
             <FifaCard
-              className="h-full"
               name={myProfile?.name || "Jugador"}
               level={myProfile?.level ?? 6}
-              position={myProfile?.position || "—"}
-              avatarUrl={myProfile?.avatar_url}
+              position={myProfile?.position || "flex"}
+              initials={myInitials}
               badges={myBadges}
-              stats={myStats}
+              stats={makeStats(myProfile)}
               footer={
-                <div className="flex gap-2">
-                  <a href="/landing/profile/edit" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
-                    Editar perfil
-                  </a>
-                </div>
+                <a
+                  href="/landing/profile/edit"
+                  className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                >
+                  Editar perfil
+                </a>
               }
             />
-
             <FifaCard
-              className="h-full"
               name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
               level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
-              position={partnerProfile?.position || (pairLink ? "—" : "")}
-              avatarUrl={partnerProfile?.avatar_url}
+              position={partnerProfile?.position || "flex"}
+              initials={partnerInitials}
               badges={partnerBadges}
-              stats={partnerStats}
+              stats={makeStats(partnerProfile)}
               footer={
                 pairLink ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={async () => {
-                        setMsg("");
-                        await supabase
-                          .from("partner_links")
-                          .update({ active: false })
-                          .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
-                        setMsg("✅ Pareja marcada como inactiva");
-                        setPartnerProfile(null);
-                        setMyPair(null);
-                      }}
-                      className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
-                    >
-                      Romper pareja
-                    </button>
-                  </div>
+                  <button
+                    onClick={async () => {
+                      setMsg("");
+                      await supabase
+                        .from("partner_links")
+                        .update({ active: false })
+                        .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
+                      setMsg("✅ Pareja marcada como inactiva");
+                      setPartnerProfile(null);
+                      setMyPair(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                  >
+                    Romper pareja
+                  </button>
                 ) : (
-                  <div className="text-sm text-gray-400">No tienes pareja activa.</div>
+                  <span className="text-sm text-gray-400">No tienes pareja activa.</span>
                 )
               }
             />
           </div>
 
-          {/* Acciones de partidos justo debajo de las tarjetas */}
+          {/* Acciones de partidos (debajo de las tarjetas) */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Partidos</h3>
             <div className="flex flex-wrap gap-3">
               <a href="/landing/matches/find" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
                 Buscar rivales
               </a>
-              <a href="/landing/matches/new" className="px-4 py-2 rounded-2xl bg-emerald-500 text-black">
+              <a href="/landing/matches/new" className="px-4 py-2 rounded-xl bg-emerald-500 text-black">
                 Crear partido
               </a>
               <a href="/landing/matches/mis" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
@@ -217,7 +215,7 @@ export default function MyArea() {
           </div>
         </div>
 
-        {/* ===== DERECHA (sidebar) ===== */}
+        {/* DERECHA: indicadores + últimos partidos + invitar */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Indicadores rápidos</h3>

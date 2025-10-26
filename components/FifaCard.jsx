@@ -2,88 +2,109 @@
 import clsx from "clsx";
 
 /**
- * Props:
- * - name, level, position, avatarUrl
- * - badges: string[]
- * - stats: { ATQ:number, DEF:number, COM:number, COL:number }   // NUEVO
- * - footer: ReactNode
+ * props:
+ * - name: string
+ * - level: number (1–7 ó 1–99, mostramos entero grande a la izquierda)
+ * - position: string (reves, drive, flex)
+ * - initials: string (1 letra círculo)
+ * - badges: string[] (chips pequeñas)
+ * - stats: { ATQ:number, DEF:number, COM:number, COL:number }
+ * - footer: ReactNode (botones)
  */
 export default function FifaCard({
   name = "Jugador",
   level = 6,
   position = "—",
-  avatarUrl,
+  initials = "J",
   badges = [],
-  stats = { ATQ: 72, DEF: 70, COM: 71, COL: 74 },
-  footer,
-  className,
+  stats = { ATQ: 50, DEF: 50, COM: 50, COL: 50 },
+  footer = null,
 }) {
-  const initial = (name || "?").slice(0, 1).toUpperCase();
-  const levelInt = Math.round(level * 10); // para un “overall” visual
+  // Convertimos nivel [1–7] a un “rating” visual tipo FIFA (opcional)
+  const rating = Math.max(1, Math.round(Number(level) * 10));
 
   return (
-    <div
-      className={clsx(
-        "relative rounded-3xl border border-white/10 bg-gradient-to-b from-[#0f172a] to-[#0b1220] p-5 shadow-[0_10px_40px_rgba(0,0,0,0.35)]",
-        "before:pointer-events-none before:absolute before:inset-0 before:rounded-3xl before:bg-[radial-gradient(transparent_1px,rgba(255,255,255,0.04)_1px)] before:bg-[length:18px_18px]",
-        "min-h-[230px]",
-        className
-      )}
-    >
-      {/* Top row */}
-      <div className="flex items-center gap-4">
-        <div className="text-4xl font-extrabold leading-none">{levelInt}</div>
-        <div
-          className={clsx(
-            "h-16 w-16 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-xl font-bold",
-            avatarUrl ? "overflow-hidden p-0" : "p-0"
-          )}
-        >
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt={name} className="h-full w-full object-cover rounded-full" />
-          ) : (
-            <span>{initial}</span>
-          )}
-        </div>
-        <div className="flex-1">
-          <div className="text-lg font-semibold">{name}</div>
-          <div className="text-xs text-white/70">Lvl {level.toFixed(1)} — {position || "—"}</div>
-          {badges?.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {badges.map((b, i) => (
-                <span key={i} className="text-[10px] px-2 py-[2px] rounded-full border border-white/15 text-white/80">
-                  {b}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]">
+      {/* fondo punteado */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-3xl"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+          maskImage:
+            "linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.4))",
+        }}
+      />
 
-      {/* Separator “rail” */}
-      <div className="mt-3 h-px w-full bg-white/10" />
-
-      {/* 4 stats */}
-      <div className="grid grid-cols-4 gap-3 mt-4">
-        {[
-          ["ATQ", stats.ATQ ?? 72],
-          ["DEF", stats.DEF ?? 70],
-          ["COM", stats.COM ?? 71],
-          ["COL", stats.COL ?? 74],
-        ].map(([label, val]) => (
-          <div key={label}>
-            <div className="text-[11px] text-white/60">{label}</div>
-            <div className="text-xl font-bold">{Number(val ?? 0)}</div>
+      <div className="relative z-10 flex items-start gap-4">
+        {/* Rating grande */}
+        <div className="flex flex-col items-center">
+          <div className="text-4xl font-extrabold leading-none">{rating}</div>
+          <div className="text-[10px] uppercase tracking-widest text-gray-400 -mt-1">
+            Lvl {Number(level).toFixed(1)}
           </div>
-        ))}
+        </div>
+
+        {/* Avatar circular + nombre/pos/badges */}
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 rounded-full border border-white/15 bg-white/5 ring-1 ring-white/10 flex items-center justify-center text-xl font-bold">
+              {String(initials || "J").slice(0, 1).toUpperCase()}
+            </div>
+            <div>
+              <div className="text-lg font-semibold leading-tight">{name}</div>
+              <div className="text-[11px] text-gray-400">
+                {positionLabel(position)}
+              </div>
+              {!!badges?.length && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {badges.map((b, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-gray-300"
+                    >
+                      {b}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Regla divisoria */}
+          <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+          {/* Stats 4 columnas: ATQ DEF COM COL */}
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              ["ATQ", stats.ATQ],
+              ["DEF", stats.DEF],
+              ["COM", stats.COM],
+              ["COL", stats.COL],
+            ].map(([k, v]) => (
+              <div key={k} className="text-center">
+                <div className="text-[10px] tracking-widest text-gray-400">{k}</div>
+                <div className="mt-0.5 text-xl font-extrabold">{Math.round(Number(v || 0))}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer (botones) */}
       {footer && <div className="mt-4">{footer}</div>}
 
-      {/* Sutil glow bottom */}
-      <div className="pointer-events-none absolute inset-x-4 bottom-0 h-3 rounded-full bg-emerald-400/10 blur-xl" />
+      {/* halo sutil */}
+      <div className="pointer-events-none absolute -inset-px rounded-3xl shadow-[0_0_80px_rgba(16,185,129,0.15)]" />
     </div>
   );
+}
+
+function positionLabel(pos) {
+  if (pos === "reves") return "lvl — revés";
+  if (pos === "drive") return "lvl — drive";
+  if (pos === "flex") return "lvl — flex";
+  return "—";
 }
