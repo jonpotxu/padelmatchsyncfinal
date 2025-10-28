@@ -14,22 +14,16 @@ function toBadges(profile, agg) {
   return out;
 }
 
-// 4 métricas (ATQ, DEF, COM, COL) derivadas del nivel como placeholder
 function makeStats(profile) {
   const lvl = Number(profile?.level ?? 5);
   const base = Math.min(99, Math.max(1, Math.round(lvl * 10)));
-  return {
-    ATQ: base + 2,
-    DEF: base,
-    COM: base - 1,
-    COL: base + 3,
-  };
+  return { ATQ: base + 2, DEF: base, COM: base - 1, COL: base + 3 };
 }
 
 export default function MyArea() {
   const { user, loading } = useAuth();
 
-  const [pairLink, setPairLink] = useState(null); // v_my_active_partner
+  const [pairLink, setPairLink] = useState(null);
   const [myProfile, setMyProfile] = useState(null);
   const [partnerProfile, setPartnerProfile] = useState(null);
   const [myAgg, setMyAgg] = useState(null);
@@ -38,7 +32,6 @@ export default function MyArea() {
   const [recentMatches, setRecentMatches] = useState([]);
   const [msg, setMsg] = useState("");
 
-  // 1) pareja activa
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -47,7 +40,6 @@ export default function MyArea() {
     })();
   }, [user]);
 
-  // 2) mi perfil + agg
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -67,7 +59,6 @@ export default function MyArea() {
     })();
   }, [user]);
 
-  // 3) perfil partner
   useEffect(() => {
     if (!user || !pairLink?.partner_id) {
       setPartnerProfile(null);
@@ -92,7 +83,6 @@ export default function MyArea() {
     })();
   }, [user, pairLink]);
 
-  // 4) mi par (tabla pairs)
   useEffect(() => {
     if (!user || !pairLink?.partner_id) {
       setMyPair(null);
@@ -111,7 +101,6 @@ export default function MyArea() {
     })();
   }, [user, pairLink]);
 
-  // 5) últimos partidos
   useEffect(() => {
     if (!myPair) {
       setRecentMatches([]);
@@ -154,12 +143,12 @@ export default function MyArea() {
       </p>
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* IZQUIERDA: 2 cols (tarjetas + acciones de partido) */}
+        {/* IZQUIERDA: 2 cols */}
         <div className="md:col-span-2 space-y-6">
-          {/* Tarjetas mismas dimensiones */}
+          {/* FIFA Cards */}
           <div className="grid md:grid-cols-2 gap-6">
             <FifaCard
-              className="min-h-[260px] md:min-h-[300px]"
+              className="min-h-[300px]"
               name={myProfile?.name || "Jugador"}
               level={myProfile?.level ?? 6}
               position={myProfile?.position || "flex"}
@@ -177,7 +166,7 @@ export default function MyArea() {
             />
 
             <FifaCard
-              className="min-h-[260px] md:min-h-[300px]"
+              className="min-h-[300px]"
               name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
               level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
               position={partnerProfile?.position || "flex"}
@@ -208,7 +197,7 @@ export default function MyArea() {
             />
           </div>
 
-          {/* Acciones de partidos (debajo de las tarjetas) */}
+          {/* Partidos */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Partidos</h3>
             <div className="flex flex-wrap gap-3">
@@ -232,7 +221,7 @@ export default function MyArea() {
           </div>
         </div>
 
-        {/* DERECHA: indicadores + últimos partidos + invitar */}
+        {/* DERECHA */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Indicadores rápidos</h3>
