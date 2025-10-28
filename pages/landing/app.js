@@ -1,5 +1,5 @@
 // /pages/landing/app.js
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import SiteLayout from "@/components/SiteLayout";
 import { useAuth } from "@/src/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -14,22 +14,22 @@ function toBadges(profile, agg) {
   return out;
 }
 
-// Generamos 4 stats a partir de datos básicos (placeholder hasta conectar feedback real)
+// 4 métricas (ATQ, DEF, COM, COL) derivadas del nivel como placeholder
 function makeStats(profile) {
   const lvl = Number(profile?.level ?? 5);
   const base = Math.min(99, Math.max(1, Math.round(lvl * 10)));
   return {
-    ATQ: base + 2,        // ataque
-    DEF: base,            // defensa
-    COM: base - 1,        // comunicación
-    COL: base + 3,        // colocación
+    ATQ: base + 2,
+    DEF: base,
+    COM: base - 1,
+    COL: base + 3,
   };
 }
 
 export default function MyArea() {
   const { user, loading } = useAuth();
 
-  const [pairLink, setPairLink] = useState(null);  // v_my_active_partner
+  const [pairLink, setPairLink] = useState(null); // v_my_active_partner
   const [myProfile, setMyProfile] = useState(null);
   const [partnerProfile, setPartnerProfile] = useState(null);
   const [myAgg, setMyAgg] = useState(null);
@@ -69,7 +69,11 @@ export default function MyArea() {
 
   // 3) perfil partner
   useEffect(() => {
-    if (!user || !pairLink?.partner_id) { setPartnerProfile(null); setPartnerAgg(null); return; }
+    if (!user || !pairLink?.partner_id) {
+      setPartnerProfile(null);
+      setPartnerAgg(null);
+      return;
+    }
     (async () => {
       const pid = pairLink.partner_id;
       const { data: p } = await supabase
@@ -90,7 +94,10 @@ export default function MyArea() {
 
   // 4) mi par (tabla pairs)
   useEffect(() => {
-    if (!user || !pairLink?.partner_id) { setMyPair(null); return; }
+    if (!user || !pairLink?.partner_id) {
+      setMyPair(null);
+      return;
+    }
     (async () => {
       const { data } = await supabase
         .from("pairs")
@@ -106,7 +113,10 @@ export default function MyArea() {
 
   // 5) últimos partidos
   useEffect(() => {
-    if (!myPair) { setRecentMatches([]); return; }
+    if (!myPair) {
+      setRecentMatches([]);
+      return;
+    }
     (async () => {
       const { data } = await supabase
         .from("matches")
@@ -136,85 +146,85 @@ export default function MyArea() {
   const myBadges = toBadges(myProfile, myAgg);
   const partnerBadges = toBadges(partnerProfile, partnerAgg);
 
-  // Iniciales
-  const myInitials = (myProfile?.name || user.email || "J").slice(0, 1).toUpperCase();
-  const partnerInitials = (partnerProfile?.name || "T").slice(0, 1).toUpperCase();
-
   return (
     <SiteLayout>
       <h1 className="text-3xl font-bold mb-2">Mi área</h1>
-		<p className="text-gray-300 mb-8">
-			Hola, <b>{myProfile?.name || user.email}</b> 👋
-		</p>
+      <p className="text-gray-300 mb-8">
+        Hola, <b>{myProfile?.name || user.email}</b> 👋
+      </p>
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* IZQUIERDA: 2 cols (tarjetas + acciones de partido) */}
         <div className="md:col-span-2 space-y-6">
           {/* Tarjetas mismas dimensiones */}
           <div className="grid md:grid-cols-2 gap-6">
-           <div className="grid md:grid-cols-2 gap-6">
-  <FifaCard
-    className="min-h-[260px] md:min-h-[300px]"    // <- alarga aquí
-    name={myProfile?.name || "Jugador"}
-    level={myProfile?.level ?? 6}
-    position={myProfile?.position || "flex"}
-    initials={(myProfile?.name || user.email || "J").slice(0,1).toUpperCase()}
-    badges={myBadges}
-    stats={makeStats(myProfile)}
-    footer={
-      <a
-        href="/landing/profile/edit"
-        className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
-      >
-        Editar perfil
-      </a>
-    }
-  />
+            <FifaCard
+              className="min-h-[260px] md:min-h-[300px]"
+              name={myProfile?.name || "Jugador"}
+              level={myProfile?.level ?? 6}
+              position={myProfile?.position || "flex"}
+              initials={(myProfile?.name || user.email || "J").slice(0, 1).toUpperCase()}
+              badges={myBadges}
+              stats={makeStats(myProfile)}
+              footer={
+                <a
+                  href="/landing/profile/edit"
+                  className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                >
+                  Editar perfil
+                </a>
+              }
+            />
 
-  <FifaCard
-    className="min-h-[260px] md:min-h-[300px]"    // <- y aquí
-    name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
-    level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
-    position={partnerProfile?.position || "flex"}
-    initials={(partnerProfile?.name || "T").slice(0,1).toUpperCase()}
-    badges={partnerBadges}
-    stats={makeStats(partnerProfile)}
-    footer={
-      pairLink ? (
-        <button
-          onClick={async () => {
-            setMsg("");
-            await supabase
-              .from("partner_links")
-              .update({ active: false })
-              .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
-            setMsg("✅ Pareja marcada como inactiva");
-            setPartnerProfile(null);
-            setMyPair(null);
-          }}
-          className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
-        >
-          Romper pareja
-        </button>
-      ) : (
-        <span className="text-sm text-gray-400">No tienes pareja activa.</span>
-      )
-    }
-  />
-</div>
-
+            <FifaCard
+              className="min-h-[260px] md:min-h-[300px]"
+              name={partnerProfile?.name || (pairLink ? "Tu pareja" : "Sin pareja")}
+              level={partnerProfile?.level ?? (pairLink ? 6 : 0)}
+              position={partnerProfile?.position || "flex"}
+              initials={(partnerProfile?.name || "T").slice(0, 1).toUpperCase()}
+              badges={partnerBadges}
+              stats={makeStats(partnerProfile)}
+              footer={
+                pairLink ? (
+                  <button
+                    onClick={async () => {
+                      setMsg("");
+                      await supabase
+                        .from("partner_links")
+                        .update({ active: false })
+                        .or(`a_user.eq.${user.id},b_user.eq.${user.id}`);
+                      setMsg("✅ Pareja marcada como inactiva");
+                      setPartnerProfile(null);
+                      setMyPair(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                  >
+                    Romper pareja
+                  </button>
+                ) : (
+                  <span className="text-sm text-gray-400">No tienes pareja activa.</span>
+                )
+              }
+            />
+          </div>
 
           {/* Acciones de partidos (debajo de las tarjetas) */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h3 className="text-lg font-semibold mb-3">Partidos</h3>
             <div className="flex flex-wrap gap-3">
-              <a href="/landing/matches/find" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
+              <a
+                href="/landing/matches/find"
+                className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+              >
                 Buscar rivales
               </a>
               <a href="/landing/matches/new" className="px-4 py-2 rounded-xl bg-emerald-500 text-black">
                 Crear partido
               </a>
-              <a href="/landing/matches/mis" className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10">
+              <a
+                href="/landing/matches/mis"
+                className="px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+              >
                 Mis partidos
               </a>
             </div>
@@ -245,16 +255,25 @@ export default function MyArea() {
                 <div key={m.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
                   <div className="text-sm font-semibold">{m.title || "Partido"}</div>
                   <div className="text-xs text-gray-400">
-                    {m.mode || "—"} · {m.location || "—"} · {m.date ? new Date(m.date).toLocaleString() : "sin fecha"}
+                    {m.mode || "—"} · {m.location || "—"} ·{" "}
+                    {m.date ? new Date(m.date).toLocaleString() : "sin fecha"}
                   </div>
                   <div className="mt-2 flex gap-2">
-                    <a href={`/landing/feedback/${m.id}`} className="text-xs px-3 py-1 rounded-lg bg-emerald-500 text-black">
+                    <a
+                      href={`/landing/feedback/${m.id}`}
+                      className="text-xs px-3 py-1 rounded-lg bg-emerald-500 text-black"
+                    >
                       Dar feedback
                     </a>
                     <a
                       className="text-xs px-3 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10"
-                      href={m.location ? `https://playtomic.io/search?where=${encodeURIComponent(m.location)}` : "https://playtomic.io"}
-                      target="_blank" rel="noreferrer"
+                      href={
+                        m.location
+                          ? `https://playtomic.io/search?where=${encodeURIComponent(m.location)}`
+                          : "https://playtomic.io"
+                      }
+                      target="_blank"
+                      rel="noreferrer"
                     >
                       Reservar en Playtomic
                     </a>
